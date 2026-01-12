@@ -307,6 +307,10 @@
                 📸 Capturar etiqueta
             </button>
             
+            <button onclick="diagnosticar()" class="w-full bg-gray-600 text-white py-2 rounded-xl mb-4 text-xs">
+                🔍 Diagnóstico (debug)
+            </button>
+            
             <button onclick="imprimirListado()" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl mb-4">
                 🖨️ Imprimir listado
             </button>
@@ -653,13 +657,19 @@ function actualizarContadores() {
 
 // Procesamiento con Google Cloud Vision
 async function procesarFotosPendientes() {
+    console.log('🔄 Iniciando procesamiento de fotos...');
+    
     if (!isOnline) {
+        console.log('❌ Sin conexión');
         toast('⚠️ Sin conexión. Las fotos se procesarán cuando haya internet.');
         return;
     }
     
     var pendientes = fotosPendientes.filter(f => !f.procesada);
+    console.log('📸 Fotos pendientes de procesar:', pendientes.length);
+    
     if (pendientes.length === 0) {
+        console.log('✅ No hay fotos pendientes');
         return;
     }
     
@@ -668,6 +678,7 @@ async function procesarFotosPendientes() {
     document.getElementById('processing-total').textContent = pendientes.length;
     
     for (var i = 0; i < pendientes.length; i++) {
+        console.log('🔄 Procesando foto ' + (i+1) + '/' + pendientes.length);
         document.getElementById('processing-count').textContent = i + 1;
         var progreso = ((i + 1) / pendientes.length) * 100;
         document.getElementById('processing-progress').style.width = progreso + '%';
@@ -676,9 +687,11 @@ async function procesarFotosPendientes() {
             var resultado = await procesarFotoConVision(pendientes[i].data);
             pendientes[i].datosExtraidos = resultado;
             pendientes[i].procesada = true;
+            console.log('✅ Foto procesada:', resultado);
         } catch (error) {
-            console.error('Error procesando foto:', error);
+            console.error('❌ Error procesando foto:', error);
             pendientes[i].error = error.message;
+            pendientes[i].procesada = false;
         }
     }
     
@@ -687,6 +700,8 @@ async function procesarFotosPendientes() {
     
     actualizarContadores();
     toast('✅ Fotos procesadas');
+    
+    console.log('✅ Procesamiento completado');
     
     // Mostrar primera foto para revisión
     mostrarSiguienteFotoParaRevision();
@@ -995,8 +1010,61 @@ function imprimirListado() {
     ventana.print();
 }
 
+// Función de diagnóstico
+function diagnosticar() {
+    var msg = '🔍 DIAGNÓSTICO DEL SISTEMA\n\n';
+    msg += '📡 Conexión:\n';
+    msg += '  • Internet: ' + (isOnline ? '✅ Conectado' : '❌ Sin conexión') + '\n';
+    msg += '  • GAPI: ' + (gapiInited ? '✅ OK' : '❌ No iniciado') + '\n';
+    msg += '  • GIS: ' + (gisInited ? '✅ OK' : '❌ No iniciado') + '\n\n';
+    
+    msg += '🔑 Autenticación:\n';
+    msg += '  • API Key: ' + (GOOGLE_API_KEY ? '✅ Configurado' : '❌ Falta') + '\n';
+    msg += '  • Access Token: ' + (accessToken ? '✅ Autenticado' : '❌ No autenticado') + '\n';
+    msg += '  • Carpeta Drive: ' + (carpetaDriveId ? '✅ ' + carpetaDriveId : '❌ No creada') + '\n\n';
+    
+    msg += '📸 Fotos:\n';
+    msg += '  • Total capturadas: ' + fotosPendientes.length + '\n';
+    
+    var procesadas = fotosPendientes.filter(function(f) { return f.procesada; }).length;
+    var confirmadas = fotosPendientes.filter(function(f) { return f.confirmada; }).length;
+    var enDrive = fotosPendientes.filter(function(f) { return f.driveId; }).length;
+    
+    msg += '  • Procesadas (OCR): ' + procesadas + '\n';
+    msg += '  • Confirmadas: ' + confirmadas + '\n';
+    msg += '  • Subidas a Drive: ' + enDrive + '\n\n';
+    
+    msg += '📦 Productos:\n';
+    msg += '  • Confirmados: ' + productos.length + '\n\n';
+    
+    if (fotosPendientes.length > 0) {
+        msg += '📋 Detalle de fotos:\n';
+        for (var i = 0; i < Math.min(3, fotosPendientes.length); i++) {
+            var f = fotosPendientes[i];
+            msg += '  Foto ' + (i+1) + ':\n';
+            msg += '    • Procesada: ' + (f.procesada ? '✅' : '⏳ Pendiente') + '\n';
+            msg += '    • Confirmada: ' + (f.confirmada ? '✅' : '⏳ Pendiente') + '\n';
+            msg += '    • Drive: ' + (f.driveId ? '✅' : '❌') + '\n';
+            if (f.error) {
+                msg += '    • Error: ' + f.error + '\n';
+            }
+        }
+        if (fotosPendientes.length > 3) {
+            msg += '  ... y ' + (fotosPendientes.length - 3) + ' más\n';
+        }
+    }
+    
+    console.log('=== DIAGNÓSTICO COMPLETO ===');
+    console.log(msg);
+    console.log('Fotos pendientes:', fotosPendientes);
+    console.log('Productos:', productos);
+    
+    alert(msg);
+}
+
 // Inicialización
 window.addEventListener('load', function() {
+    console.log('🚀 Iniciando aplicación...');
     actualizarEstadoConexion();
     gapiLoaded();
     gisLoaded();
